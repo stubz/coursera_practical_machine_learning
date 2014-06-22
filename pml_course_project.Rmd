@@ -1,0 +1,52 @@
+---
+title: 'Coursera Practical Machine Learning : Course Project'
+author: "Yusuke Yamamoto"
+date: "19/06/2014"
+output: html_document
+---
+
+The objective of this analysis is to predict the manner in which six participants did the exercise. They performed the excercise in five different ways; one exactly follows the specification, and the other four follow the specification incorrect way.
+
+### Pre-Processing
+We have training and testing data sets. The training data have 19622 records with 160 variables, while the test data set has 20 records. Some variables have NA for almost all records such as kurtosis_roll_belt and kurtosis_picth_belt. kurtosis_picth_belt has 19,248 NA out of 19,622 records. The problem happens to variables whose name start with max, min, kurtosis, skewness, var, avg and apmlitude. These variables will not be useful for the classification even if
+we impute the data, because almost all records will have identical values. They were removed from the analysis by the followng command.
+```
+library(caret)
+trainingall <- read.csv("pml-training.csv"); testing<-read.csv("pml-testing.csv")
+idxMax <- grep("^max_", colnames(trainingall),ignore.case=TRUE)
+idxMin <- grep("^min_", colnames(trainingall),ignore.case=TRUE)
+idxSkew <- grep("^skewness_", colnames(trainingall),ignore.case=TRUE)
+idxKurt <- grep("^kurtosis_", colnames(trainingall),ignore.case=TRUE)
+idxStd <- grep("^stddev_", colnames(trainingall),ignore.case=TRUE)
+idxVar <- grep("^var_", colnames(trainingall),ignore.case=TRUE)
+idxAvg <- grep("^avg_", colnames(trainingall),ignore.case=TRUE)
+idxAmp <- grep("^amplitude_", colnames(trainingall),ignore.case=TRUE)
+trainingall <- trainingall[,-c(idxMax,idxMin,idxSkew,idxKurt,idxStd,idxVar,idxAvg,idxAmp)]
+```
+Before fitting a model, the training data are split into two parts; one for training the model, and the other for the cross validation. We take approximately 60% of the data as the training data, and 40% as the cross validation.
+```
+set.seed(11)
+inTrain <- createDataPartition(y=trainingall$classe, p=0.6, list=FALSE)
+training <- trainingall[inTrain,];cv <- training[-inTrain,]
+```
+
+### Benchmark and Model fit
+In order to check the performance of a model, the benchmark was calculated. Because this is the classification problem, the frequency of each category was calculated. Class A has the highest freqeuency in the training data set, and the benchmark was obtained by setting every prediction as Class A. The accuracy of the benchmark is 28.45%, and our prediction needs to be better than this accuracy.
+
+```
+table(training$classe)
+pred.benchmark <- factor(rep("A",dim(cv)[1]), levels=c("A","B","C","D","E"))
+confusionMatrix(pred.benchmark, cv$classe)
+```
+
+To fit the training data, we used the boosting method with trees by gbm package. 
+```
+modFit <- train(classe~., data=training, method="gbm")
+print(modFit)
+predictions <- predict(modFit$finalModel, cv)
+confusionMatrix(predictions, cv$classe)
+```
+The final model uses xxx trees with xx and xx parameters.
+The accuracy was xx %, which is better than the benchmark. The sensitivity is and the specificity is xxx %.  
+
+### Predict the test data
