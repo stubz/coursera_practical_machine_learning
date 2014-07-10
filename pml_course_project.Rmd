@@ -10,7 +10,12 @@ The objective of this analysis is to predict the manner in which six participant
 ### Pre-Processing
 We have training and testing data sets. The training data have 19622 records with 160 variables, while the test data set has 20 records. Some variables have NA for almost all records such as kurtosis_roll_belt and kurtosis_picth_belt. kurtosis_picth_belt has 19,248 NA out of 19,622 records. The problem happens to variables whose name start with max, min, kurtosis, skewness, var, avg and apmlitude. These variables will not be useful for the classification even if
 we impute the data, because almost all records will have identical values. They were removed from the analysis by the followng command.
+```{r,results='hide',echo=FALSE}
+setwd("/Users/okada/myWork/coursera/practical_machine_learning")
+library(lattice);library(ggplot2);library(caret)
+trainingall <- read.csv("pml-training.csv"); testing<-read.csv("pml-testing.csv")
 ```
+```{r,echo=FALSE}
 library(caret)
 trainingall <- read.csv("pml-training.csv"); testing<-read.csv("pml-testing.csv")
 idxMax <- grep("^max_", colnames(trainingall),ignore.case=TRUE)
@@ -39,14 +44,26 @@ pred.benchmark <- factor(rep("A",dim(cv)[1]), levels=c("A","B","C","D","E"))
 confusionMatrix(pred.benchmark, cv$classe)
 ```
 
-To fit the training data, we used the boosting method with trees by gbm package. 
+To fit the training data, we used the random forest method. This is because the tree method tends to work well in the non-linear problems, and by random forest the accuracy would be better compared with a single tree model.
 ```
-modFit <- train(classe~., data=training, method="gbm")
-print(modFit)
-predictions <- predict(modFit$finalModel, cv)
-confusionMatrix(predictions, cv$classe)
+modFitRF <- train(classe~., data=training, method="rf")
+predrf <- predict(modFitRF, cv)
+confusionMatrix(predrf, cv$classe)
 ```
-The final model uses xxx trees with xx and xx parameters.
-The accuracy was xx %, which is better than the benchmark. The sensitivity is and the specificity is xxx %.  
+The result of the model shows that the accuracy is 99.97%, which is much better than the benchmark. The sensitivity and the specificity are higher than 99.9% for each class.
 
 ### Predict the test data
+The testing data set was fit by the final model. The fitted values are all Class A.
+
+```
+predrf.test <- predict(modFitRF, testing)
+answers <- predrf.test
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(answers)
+```
