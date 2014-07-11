@@ -13,6 +13,7 @@ we impute the data, because almost all records will have identical values. Colum
 ```{r,results='hide',echo=FALSE}
 setwd("/Users/okada/myWork/coursera/practical_machine_learning")
 library(lattice);library(ggplot2);library(caret);library(corrplot)
+library(class);library(randomForest)
 trainingall <- read.csv("pml-training.csv"); testing<-read.csv("pml-testing.csv")
 ```
 ```{r,echo=FALSE}
@@ -61,16 +62,22 @@ confusionMatrix(predrf, cv$classe)
 ```
 The result of the model shows that the accuracy is 99.97%, which is much better than the benchmark. The sensitivity and the specificity are higher than 99.9% for each class.
 
-A plot below show the importance of each variable computed in the random forest model.
+The final random forest uses 28 variables at each split. It gives the best cross validation error, which can be confirmed by the following plot.
+```{r}
+trellis.par.set(caretTheme())
+plot (modFitRF, type = c("g", "o"))
+```
+
+A plot below show the importance of each variable computed in the random forest model. num_window, roll_belt, pitch_forearm are the three of the most important variables for the prediction.
 ```{r}
 plot(varImp(modFitRF, scale=FALSE), top=20)
 ```
 
 ### Predict the test data
-The testing data set was fit by the final model. The fitted values are all Class A.
+The testing data set was fit by the final model. Each value is saved in separate files to upload onto the coursera assignmnet page.
 
 ```{r, echo=FALSE}
-predrf.test <- predict(modFitRF, testing)
+(predrf.test <- predict(modFitRF, testing))
 answers <- predrf.test
 pml_write_files = function(x){
   n = length(x)
