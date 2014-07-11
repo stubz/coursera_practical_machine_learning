@@ -9,14 +9,13 @@ The objective of this analysis is to predict the manner in which six participant
 
 ### Pre-Processing
 We have training and testing data sets. The training data have 19622 records with 160 variables, while the test data set has 20 records. Some variables have NA for almost all records such as kurtosis_roll_belt and kurtosis_picth_belt. kurtosis_picth_belt has 19,248 NA out of 19,622 records. The problem happens to variables whose name start with max, min, kurtosis, skewness, var, avg and apmlitude. These variables will not be useful for the classification even if
-we impute the data, because almost all records will have identical values. They were removed from the analysis by the followng command.
+we impute the data, because almost all records will have identical values. Column X shows the row number, column user_name is a name of the participants, and columns raw_timestamp_part_1, raw_timestamp_part_2 and cvtd_timestamp mean date time, which are not helpful for the prediction. They were removed from the analysis by the followng command.
 ```{r,results='hide',echo=FALSE}
 setwd("/Users/okada/myWork/coursera/practical_machine_learning")
-library(lattice);library(ggplot2);library(caret)
+library(lattice);library(ggplot2);library(caret);library(corrplot)
 trainingall <- read.csv("pml-training.csv"); testing<-read.csv("pml-testing.csv")
 ```
 ```{r,echo=FALSE}
-library(caret)
 trainingall <- read.csv("pml-training.csv"); testing<-read.csv("pml-testing.csv")
 idxMax <- grep("^max_", colnames(trainingall),ignore.case=TRUE)
 idxMin <- grep("^min_", colnames(trainingall),ignore.case=TRUE)
@@ -26,36 +25,51 @@ idxStd <- grep("^stddev_", colnames(trainingall),ignore.case=TRUE)
 idxVar <- grep("^var_", colnames(trainingall),ignore.case=TRUE)
 idxAvg <- grep("^avg_", colnames(trainingall),ignore.case=TRUE)
 idxAmp <- grep("^amplitude_", colnames(trainingall),ignore.case=TRUE)
-trainingall <- trainingall[,-c(idxMax,idxMin,idxSkew,idxKurt,idxStd,idxVar,idxAvg,idxAmp)]
+trainingall <- trainingall[,-c(1,2,3,4,5,idxMax,idxMin,idxSkew,idxKurt,idxStd,idxVar,idxAvg,idxAmp)]
 ```
+
+
+
 Before fitting a model, the training data are split into two parts; one for training the model, and the other for the cross validation. We take approximately 60% of the data as the training data, and 40% as the cross validation.
-```
+```{r,echo=FALSE}
 set.seed(11)
 inTrain <- createDataPartition(y=trainingall$classe, p=0.6, list=FALSE)
 training <- trainingall[inTrain,];cv <- training[-inTrain,]
 ```
 
+Some variables are highly correlated as the picture below. 
+```{r}
+cor.dat <- cor(subset(trainingall, select=-c(new_window, classe)))
+corrplot(cor.dat, order="hclust", tl.cex=0.5)
+```
+
 ### Benchmark and Model fit
 In order to check the performance of a model, the benchmark was calculated. Because this is the classification problem, the frequency of each category was calculated. Class A has the highest freqeuency in the training data set, and the benchmark was obtained by setting every prediction as Class A. The accuracy of the benchmark is 28.45%, and our prediction needs to be better than this accuracy.
 
-```
+```{r, echo=FALSE}
 table(training$classe)
 pred.benchmark <- factor(rep("A",dim(cv)[1]), levels=c("A","B","C","D","E"))
 confusionMatrix(pred.benchmark, cv$classe)
 ```
 
-To fit the training data, we used the random forest method. This is because the tree method tends to work well in the non-linear problems, and by random forest the accuracy would be better compared with a single tree model.
-```
-modFitRF <- train(classe~., data=training, method="rf")
+To fit the training data, we used the random forest method. This is because the tree method tends to work well in the non-linear problems, and by random forest the accuracy would be better compared with a single tree model. We use 3-fold cross validation to avoid the overfit.
+```{r,echo=FALSE}
+cntl <- trainControl(method="cv", number=3, repeats=1)
+modFitRF <- train(classe~., data=training, method="rf", trControl=cntl)
 predrf <- predict(modFitRF, cv)
 confusionMatrix(predrf, cv$classe)
 ```
 The result of the model shows that the accuracy is 99.97%, which is much better than the benchmark. The sensitivity and the specificity are higher than 99.9% for each class.
 
+A plot below show the importance of each variable computed in the random forest model.
+```{r}
+plot(varImp(modFitRF, scale=FALSE), top=20)
+```
+
 ### Predict the test data
 The testing data set was fit by the final model. The fitted values are all Class A.
 
-```
+```{r, echo=FALSE}
 predrf.test <- predict(modFitRF, testing)
 answers <- predrf.test
 pml_write_files = function(x){
